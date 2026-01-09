@@ -81,11 +81,12 @@ COPY --from=claude-installer /root/.local/bin/claude /usr/local/bin/claude
 USER yolo
 WORKDIR /home/yolo
 
-# Set up a nice prompt
-RUN echo 'PS1="\\[\\033[1;35m\\]yolobox\\[\\033[0m\\]:\\[\\033[1;34m\\]\\w\\[\\033[0m\\]\\$ "' >> ~/.bashrc \
+# Set up a fun prompt and aliases
+RUN echo 'PS1="\\[\\033[1;35m\\]🎲 yolo\\[\\033[0m\\]:\\[\\033[1;36m\\]\\w\\[\\033[0m\\] \\[\\033[33m\\]⚡\\[\\033[0m\\] "' >> ~/.bashrc \
     && echo 'alias ll="ls -la"' >> ~/.bashrc \
     && echo 'alias la="ls -A"' >> ~/.bashrc \
-    && echo 'alias l="ls -CF"' >> ~/.bashrc
+    && echo 'alias l="ls -CF"' >> ~/.bashrc \
+    && echo 'alias yeet="rm -rf"' >> ~/.bashrc
 
 # Welcome message
 RUN echo 'echo ""' >> ~/.bashrc \
