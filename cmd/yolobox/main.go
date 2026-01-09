@@ -18,17 +18,7 @@ import (
 
 const (
 	Version = "0.1.0"
-	// Centered logo for help screen
-	logoCentered = `
-                  ██╗   ██╗ ██████╗ ██╗      ██████╗ ██████╗  ██████╗ ██╗  ██╗
-                  ╚██╗ ██╔╝██╔═══██╗██║     ██╔═══██╗██╔══██╗██╔═══██╗╚██╗██╔╝
-                   ╚████╔╝ ██║   ██║██║     ██║   ██║██████╔╝██║   ██║ ╚███╔╝
-                    ╚██╔╝  ██║   ██║██║     ██║   ██║██╔══██╗██║   ██║ ██╔██╗
-                     ██║   ╚██████╔╝███████╗╚██████╔╝██████╔╝╚██████╔╝██╔╝ ██╗
-                     ╚═╝    ╚═════╝ ╚══════╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝
-`
-	// Left-aligned logo for startup banner
-	logo = `
+	logo    = `
 ██╗   ██╗ ██████╗ ██╗      ██████╗ ██████╗  ██████╗ ██╗  ██╗
 ╚██╗ ██╔╝██╔═══██╗██║     ██╔═══██╗██╔══██╗██╔═══██╗╚██╗██╔╝
  ╚████╔╝ ██║   ██║██║     ██║   ██║██████╔╝██║   ██║ ╚███╔╝
@@ -154,9 +144,9 @@ func printVersion() {
 }
 
 func printUsage() {
-	fmt.Fprint(os.Stderr, colorCyan+logoCentered+colorReset)
-	fmt.Fprintf(os.Stderr, "  %sFull-power AI agents, host-safe by default.%s\n\n", colorYellow, colorReset)
-	fmt.Fprintf(os.Stderr, "  %sVersion:%s %s\n\n", colorBold, colorReset, Version)
+	fmt.Fprint(os.Stderr, colorCyan+logo+colorReset)
+	fmt.Fprintf(os.Stderr, "%sFull-power AI agents, host-safe by default.%s\n\n", colorYellow, colorReset)
+	fmt.Fprintf(os.Stderr, "%sVersion:%s %s\n\n", colorBold, colorReset, Version)
 	fmt.Fprintf(os.Stderr, "%sUSAGE:%s\n", colorBold, colorReset)
 	fmt.Fprintln(os.Stderr, "  yolobox                     Start interactive shell in sandbox")
 	fmt.Fprintln(os.Stderr, "  yolobox run <cmd...>        Run a command in sandbox")
@@ -189,7 +179,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  yolobox run claude          # Run Claude Code in sandbox")
 	fmt.Fprintln(os.Stderr, "  yolobox --no-network        # Paranoid mode: no internet")
 	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintf(os.Stderr, "  %sLet your AI go full send. Your home directory stays home.%s\n\n", colorPurple, colorReset)
+	fmt.Fprintf(os.Stderr, "%sLet your AI go full send. Your home directory stays home.%s\n\n", colorPurple, colorReset)
 }
 
 func parseBaseFlags(name string, args []string) (Config, []string, error) {
