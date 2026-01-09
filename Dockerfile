@@ -1,3 +1,9 @@
+FROM ubuntu:24.04 AS claude-installer
+
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
+# Main image
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -53,7 +59,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Install global npm packages (as root, before creating user)
+# Install global npm packages
 RUN npm install -g \
     typescript \
     ts-node \
@@ -69,17 +75,11 @@ RUN useradd -m -s /bin/bash yolo \
 RUN mkdir -p /workspace /output /secrets \
     && chown yolo:yolo /workspace /output
 
+# Copy Claude Code from installer stage
+COPY --from=claude-installer /root/.local/bin/claude /usr/local/bin/claude
+
 USER yolo
 WORKDIR /home/yolo
-
-# Install Claude Code (native build) - download binary directly to /usr/local/bin
-RUN GCS_BUCKET="https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases" \
-    && VERSION=$(curl -fsSL "$GCS_BUCKET/latest") \
-    && ARCH=$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') \
-    && PLATFORM="linux-$ARCH" \
-    && curl -fsSL "$GCS_BUCKET/$VERSION/$PLATFORM/claude" -o /tmp/claude \
-    && chmod +x /tmp/claude \
-    && sudo mv /tmp/claude /usr/local/bin/claude
 
 # Set up a nice prompt
 RUN echo 'PS1="\\[\\033[1;35m\\]yolobox\\[\\033[0m\\]:\\[\\033[1;34m\\]\\w\\[\\033[0m\\]\\$ "' >> ~/.bashrc \
@@ -95,5 +95,4 @@ RUN echo 'echo ""' >> ~/.bashrc \
 
 WORKDIR /workspace
 
-# Default to bash
 CMD ["bash"]
