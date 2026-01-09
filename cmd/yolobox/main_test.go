@@ -9,8 +9,8 @@ import (
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
-	if cfg.Image != "yolobox/base:latest" {
-		t.Errorf("expected default image yolobox/base:latest, got %s", cfg.Image)
+	if cfg.Image != "ghcr.io/finbarr/yolobox:latest" {
+		t.Errorf("expected default image ghcr.io/finbarr/yolobox:latest, got %s", cfg.Image)
 	}
 	if cfg.Runtime != "" {
 		t.Errorf("expected empty default runtime, got %s", cfg.Runtime)

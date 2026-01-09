@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -126,6 +128,8 @@ func runCmd() error {
 			return fmt.Errorf("unexpected args: %v", rest)
 		}
 		return updateImage(cfg)
+	case "upgrade":
+		return upgradeYolobox()
 	case "config":
 		cfg, rest, err := parseBaseFlags("config", args[1:])
 		if err != nil {
@@ -159,6 +163,7 @@ func printUsage() {
 	fmt.Fprintf(os.Stderr, "%sUSAGE:%s\n", colorBold, colorReset)
 	fmt.Fprintln(os.Stderr, "  yolobox                     Start interactive shell in sandbox")
 	fmt.Fprintln(os.Stderr, "  yolobox run <cmd...>        Run a command in sandbox")
+	fmt.Fprintln(os.Stderr, "  yolobox upgrade             Upgrade yolobox binary and image")
 	fmt.Fprintln(os.Stderr, "  yolobox update              Pull the latest base image")
 	fmt.Fprintln(os.Stderr, "  yolobox config              Print resolved configuration")
 	fmt.Fprintln(os.Stderr, "  yolobox reset --force       Remove named volumes (fresh start)")
@@ -282,7 +287,7 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 
 func defaultConfig() Config {
 	return Config{
-		Image: "yolobox/base:latest",
+		Image: "ghcr.io/finbarr/yolobox:latest",
 	}
 }
 
@@ -704,6 +709,122 @@ func execCommand(bin string, args []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// GitHub release info
+type githubRelease struct {
+	TagName string `json:"tag_name"`
+	Assets  []struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
+	} `json:"assets"`
+}
+
+func upgradeYolobox() error {
+	info("Checking for updates...")
+
+	// Get latest release from GitHub
+	resp, err := http.Get("https://api.github.com/repos/finbarr/yolobox/releases/latest")
+	if err != nil {
+		return fmt.Errorf("failed to check for updates: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("failed to check for updates: HTTP %d", resp.StatusCode)
+	}
+
+	var release githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return fmt.Errorf("failed to parse release info: %w", err)
+	}
+
+	latestVersion := strings.TrimPrefix(release.TagName, "v")
+	currentVersion := strings.TrimPrefix(Version, "v")
+
+	if latestVersion == currentVersion {
+		success("Already at latest version (%s)", Version)
+	} else {
+		info("New version available: %s (current: %s)", latestVersion, currentVersion)
+
+		// Find the right binary for this platform
+		binaryName := fmt.Sprintf("yolobox-%s-%s", runtime.GOOS, runtime.GOARCH)
+		var downloadURL string
+		for _, asset := range release.Assets {
+			if asset.Name == binaryName {
+				downloadURL = asset.BrowserDownloadURL
+				break
+			}
+		}
+
+		if downloadURL == "" {
+			return fmt.Errorf("no binary available for %s/%s", runtime.GOOS, runtime.GOARCH)
+		}
+
+		// Download new binary
+		info("Downloading %s...", binaryName)
+		resp, err := http.Get(downloadURL)
+		if err != nil {
+			return fmt.Errorf("failed to download: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("failed to download: HTTP %d", resp.StatusCode)
+		}
+
+		// Get current executable path
+		execPath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("failed to get executable path: %w", err)
+		}
+		execPath, err = filepath.EvalSymlinks(execPath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve executable path: %w", err)
+		}
+
+		// Write to temp file first
+		tmpFile, err := os.CreateTemp(filepath.Dir(execPath), "yolobox-upgrade-*")
+		if err != nil {
+			return fmt.Errorf("failed to create temp file: %w", err)
+		}
+		tmpPath := tmpFile.Name()
+
+		_, err = io.Copy(tmpFile, resp.Body)
+		tmpFile.Close()
+		if err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("failed to write binary: %w", err)
+		}
+
+		// Make executable
+		if err := os.Chmod(tmpPath, 0755); err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("failed to chmod: %w", err)
+		}
+
+		// Replace current binary
+		if err := os.Rename(tmpPath, execPath); err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("failed to replace binary: %w", err)
+		}
+
+		success("Binary upgraded to %s", latestVersion)
+	}
+
+	// Also pull latest Docker image
+	info("Pulling latest Docker image...")
+	cfg := defaultConfig()
+	runtime, err := resolveRuntime(cfg.Runtime)
+	if err != nil {
+		return err
+	}
+	if err := execCommand(runtime, []string{"pull", cfg.Image}); err != nil {
+		return fmt.Errorf("failed to pull image: %w", err)
+	}
+
+	success("Upgrade complete!")
+	return nil
 }
 
 // Output helpers with colors
