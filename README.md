@@ -78,11 +78,8 @@ yolobox help                # Show help
 | `--runtime <name>` | Use `docker` or `podman` |
 | `--image <name>` | Custom base image |
 | `--mount <src:dst>` | Extra mount (repeatable) |
-| `--secret <path>` | Mount secret dir to `/secrets` (read-only) |
 | `--env <KEY=val>` | Set environment variable (repeatable) |
 | `--ssh-agent` | Forward SSH agent socket |
-| `--memory <limit>` | Memory limit (e.g., `4g`) |
-| `--cpus <limit>` | CPU limit (e.g., `2`) |
 | `--no-network` | Disable network access |
 | `--readonly-project` | Mount project read-only (outputs go to `/output`) |
 | `--unsafe-host` | Mount host home to `/host-home` (you asked for it) |
@@ -102,10 +99,8 @@ Create `~/.config/yolobox/config.toml` for global defaults:
 
 ```toml
 runtime = "docker"
-image = "yolobox/base:latest"
+image = "ghcr.io/finbarr/yolobox:latest"
 ssh_agent = true
-memory = "8g"
-cpus = "4"
 ```
 
 Or `.yolobox.toml` in your project for project-specific settings:

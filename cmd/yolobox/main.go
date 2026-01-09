@@ -54,14 +54,11 @@ type Config struct {
 	Runtime         string   `toml:"runtime"`
 	Image           string   `toml:"image"`
 	Mounts          []string `toml:"mounts"`
-	Secrets         []string `toml:"secrets"`
 	Env             []string `toml:"env"`
 	SSHAgent        bool     `toml:"ssh_agent"`
 	UnsafeHost      bool     `toml:"unsafe_host"`
 	ReadonlyProject bool     `toml:"readonly_project"`
 	NoNetwork       bool     `toml:"no_network"`
-	Memory          string   `toml:"memory"`
-	CPUs            string   `toml:"cpus"`
 }
 
 type stringSliceFlag []string
@@ -164,11 +161,8 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  --runtime <name>      Container runtime: docker or podman")
 	fmt.Fprintln(os.Stderr, "  --image <name>        Base image to use")
 	fmt.Fprintln(os.Stderr, "  --mount <src:dst>     Extra mount (repeatable)")
-	fmt.Fprintln(os.Stderr, "  --secret <path>       Mount secret dir into /secrets (repeatable)")
 	fmt.Fprintln(os.Stderr, "  --env <KEY=val>       Set environment variable (repeatable)")
 	fmt.Fprintln(os.Stderr, "  --ssh-agent           Forward SSH agent socket")
-	fmt.Fprintln(os.Stderr, "  --memory <limit>      Memory limit (e.g., 4g, 512m)")
-	fmt.Fprintln(os.Stderr, "  --cpus <limit>        CPU limit (e.g., 2, 0.5)")
 	fmt.Fprintln(os.Stderr, "  --no-network          Disable network access")
 	fmt.Fprintln(os.Stderr, "  --readonly-project    Mount project directory read-only")
 	fmt.Fprintln(os.Stderr, "  --unsafe-host         Mount host home to /host-home (danger!)")
@@ -207,27 +201,21 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 	var (
 		runtimeFlag     string
 		imageFlag       string
-		memoryFlag      string
-		cpusFlag        string
 		sshAgent        bool
 		unsafeHost      bool
 		readonlyProject bool
 		noNetwork       bool
 		mounts          stringSliceFlag
-		secrets         stringSliceFlag
 		envVars         stringSliceFlag
 	)
 
 	fs.StringVar(&runtimeFlag, "runtime", "", "container runtime")
 	fs.StringVar(&imageFlag, "image", "", "container image")
-	fs.StringVar(&memoryFlag, "memory", "", "memory limit")
-	fs.StringVar(&cpusFlag, "cpus", "", "cpu limit")
 	fs.BoolVar(&sshAgent, "ssh-agent", false, "mount SSH agent socket")
 	fs.BoolVar(&unsafeHost, "unsafe-host", false, "mount host home to /host-home")
 	fs.BoolVar(&readonlyProject, "readonly-project", false, "mount project read-only")
 	fs.BoolVar(&noNetwork, "no-network", false, "disable network")
 	fs.Var(&mounts, "mount", "extra mount src:dst")
-	fs.Var(&secrets, "secret", "secret directory")
 	fs.Var(&envVars, "env", "environment variable KEY=value")
 
 	if err := fs.Parse(args); err != nil {
@@ -244,12 +232,6 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 	if imageFlag != "" {
 		cfg.Image = imageFlag
 	}
-	if memoryFlag != "" {
-		cfg.Memory = memoryFlag
-	}
-	if cpusFlag != "" {
-		cfg.CPUs = cpusFlag
-	}
 	if sshAgent {
 		cfg.SSHAgent = true
 	}
@@ -264,9 +246,6 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 	}
 	if len(mounts) > 0 {
 		cfg.Mounts = append(cfg.Mounts, mounts...)
-	}
-	if len(secrets) > 0 {
-		cfg.Secrets = append(cfg.Secrets, secrets...)
 	}
 	if len(envVars) > 0 {
 		cfg.Env = append(cfg.Env, envVars...)
@@ -335,17 +314,8 @@ func mergeConfig(dst *Config, src Config) {
 	if src.Image != "" {
 		dst.Image = src.Image
 	}
-	if src.Memory != "" {
-		dst.Memory = src.Memory
-	}
-	if src.CPUs != "" {
-		dst.CPUs = src.CPUs
-	}
 	if len(src.Mounts) > 0 {
 		dst.Mounts = append([]string{}, src.Mounts...)
-	}
-	if len(src.Secrets) > 0 {
-		dst.Secrets = append([]string{}, src.Secrets...)
 	}
 	if len(src.Env) > 0 {
 		dst.Env = append([]string{}, src.Env...)
@@ -393,22 +363,10 @@ func printConfig(cfg Config) error {
 	fmt.Printf("%sunsafe_host:%s %t\n", colorBold, colorReset, cfg.UnsafeHost)
 	fmt.Printf("%sreadonly_project:%s %t\n", colorBold, colorReset, cfg.ReadonlyProject)
 	fmt.Printf("%sno_network:%s %t\n", colorBold, colorReset, cfg.NoNetwork)
-	if cfg.Memory != "" {
-		fmt.Printf("%smemory:%s %s\n", colorBold, colorReset, cfg.Memory)
-	}
-	if cfg.CPUs != "" {
-		fmt.Printf("%scpus:%s %s\n", colorBold, colorReset, cfg.CPUs)
-	}
 	if len(cfg.Mounts) > 0 {
 		fmt.Printf("%smounts:%s\n", colorBold, colorReset)
 		for _, m := range cfg.Mounts {
 			fmt.Printf("  - %s\n", m)
-		}
-	}
-	if len(cfg.Secrets) > 0 {
-		fmt.Printf("%ssecrets:%s\n", colorBold, colorReset)
-		for _, s := range cfg.Secrets {
-			fmt.Printf("  - %s\n", s)
 		}
 	}
 	if len(cfg.Env) > 0 {
@@ -541,28 +499,10 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 		}
 	}
 
-	// Secrets
-	for _, secret := range cfg.Secrets {
-		resolved, err := resolveSecretPath(secret, absProject)
-		if err != nil {
-			return nil, err
-		}
-		name := filepath.Base(resolved)
-		args = append(args, "-v", resolved+":/secrets/"+name+":ro")
-	}
-
 	// Unsafe host home mount
 	if cfg.UnsafeHost {
 		warn("--unsafe-host enabled: your home directory is accessible at /host-home")
 		args = append(args, "-v", home+":/host-home")
-	}
-
-	// Resource limits
-	if cfg.Memory != "" {
-		args = append(args, "--memory", cfg.Memory)
-	}
-	if cfg.CPUs != "" {
-		args = append(args, "--cpus", cfg.CPUs)
 	}
 
 	// Network isolation
@@ -619,27 +559,6 @@ func resolvePath(path string, projectDir string) (string, error) {
 		return filepath.Clean(path), nil
 	}
 	return path, nil
-}
-
-func resolveSecretPath(path string, projectDir string) (string, error) {
-	if path == "" {
-		return "", fmt.Errorf("empty path")
-	}
-	if strings.HasPrefix(path, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		if path == "~" {
-			path = home
-		} else if strings.HasPrefix(path, "~/") {
-			path = filepath.Join(home, path[2:])
-		}
-	}
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(projectDir, path)
-	}
-	return filepath.Clean(path), nil
 }
 
 func resolvedRuntimeName(name string) string {

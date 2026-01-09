@@ -26,7 +26,6 @@ func TestMergeConfig(t *testing.T) {
 		Image:     "new-image",
 		SSHAgent:  true,
 		NoNetwork: true,
-		Memory:    "4g",
 	}
 
 	mergeConfig(&dst, src)
@@ -42,9 +41,6 @@ func TestMergeConfig(t *testing.T) {
 	}
 	if !dst.NoNetwork {
 		t.Error("expected NoNetwork to be true")
-	}
-	if dst.Memory != "4g" {
-		t.Errorf("expected memory to be 4g, got %s", dst.Memory)
 	}
 }
 
@@ -139,12 +135,9 @@ func TestResolvedRuntimeName(t *testing.T) {
 
 func TestBuildRunArgs(t *testing.T) {
 	cfg := Config{
-		Image:   "test-image",
-		Memory:  "2g",
-		CPUs:    "1",
-		Env:     []string{"FOO=bar"},
-		Mounts:  []string{},
-		Secrets: []string{},
+		Image:  "test-image",
+		Env:    []string{"FOO=bar"},
+		Mounts: []string{},
 	}
 
 	args, err := buildRunArgs(cfg, "/test/project", []string{"bash"}, true)
@@ -163,12 +156,6 @@ func TestBuildRunArgs(t *testing.T) {
 	}
 	if !strings.Contains(argsStr, "YOLOBOX=1") {
 		t.Error("expected YOLOBOX=1 env var")
-	}
-	if !strings.Contains(argsStr, "--memory 2g") {
-		t.Error("expected --memory 2g")
-	}
-	if !strings.Contains(argsStr, "--cpus 1") {
-		t.Error("expected --cpus 1")
 	}
 	if !strings.Contains(argsStr, "FOO=bar") {
 		t.Error("expected FOO=bar env var")
