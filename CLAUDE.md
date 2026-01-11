@@ -13,6 +13,10 @@ make install        # Build and install to ~/.local/bin
 make clean          # Remove built binary
 ```
 
+## Workflow
+
+**Always commit changes after completing work.** Don't leave uncommitted changes - if you modified files, commit them before finishing.
+
 ## Verification
 
 After making changes, run this verification sequence:

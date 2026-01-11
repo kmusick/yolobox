@@ -122,8 +122,8 @@ RUN cp /opt/yolobox/wrapper-template /opt/yolobox/bin/gemini \
     && echo 'exec "$REAL_BIN" --yolo "$@"' >> /opt/yolobox/bin/gemini \
     && chmod +x /opt/yolobox/bin/gemini
 
-# Add wrapper dir to PATH (prepend so wrappers take priority)
-ENV PATH="/opt/yolobox/bin:$PATH"
+# Add wrapper dir and ~/.local/bin to PATH (wrappers take priority)
+ENV PATH="/opt/yolobox/bin:/home/yolo/.local/bin:$PATH"
 
 USER yolo
 
