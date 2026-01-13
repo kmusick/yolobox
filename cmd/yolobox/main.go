@@ -366,12 +366,12 @@ func loadConfig(projectDir string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	if err := mergeConfigFile(globalPath, &cfg); err != nil {
+	if err := mergeConfigFile(globalPath, &cfg, false); err != nil {
 		return Config{}, err
 	}
 
 	projectPath := filepath.Join(projectDir, ".yolobox.toml")
-	if err := mergeConfigFile(projectPath, &cfg); err != nil {
+	if err := mergeConfigFile(projectPath, &cfg, true); err != nil {
 		return Config{}, err
 	}
 
@@ -389,7 +389,7 @@ func globalConfigPath() (string, error) {
 	return filepath.Join(home, ".config", "yolobox", "config.toml"), nil
 }
 
-func mergeConfigFile(path string, cfg *Config) error {
+func mergeConfigFile(path string, cfg *Config, restricted bool) error {
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -400,6 +400,26 @@ func mergeConfigFile(path string, cfg *Config) error {
 	var fileCfg Config
 	if _, err := toml.DecodeFile(path, &fileCfg); err != nil {
 		return err
+	}
+
+	if restricted {
+		var safeMounts []string
+		for _, m := range fileCfg.Mounts {
+			parts := strings.SplitN(m, ":", 2)
+			src := parts[0]
+			
+			isUnsafe := filepath.IsAbs(src) || 
+				strings.HasPrefix(src, "~") || 
+				strings.HasPrefix(src, "$") || 
+				strings.Contains(src, "..")
+			
+			if isUnsafe {
+				warn("Ignoring unsafe mount in project config: %s (use global config or CLI flags for host paths)", m)
+			} else {
+				safeMounts = append(safeMounts, m)
+			}
+		}
+		fileCfg.Mounts = safeMounts
 	}
 
 	mergeConfig(cfg, fileCfg)
