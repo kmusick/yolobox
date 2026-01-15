@@ -162,7 +162,7 @@ RUN echo 'echo ""' >> ~/.bashrc \
 
 # Create entrypoint script
 USER root
-RUN mkdir -p /host-claude && \
+RUN mkdir -p /host-claude /host-git && \
     printf '%s\n' \
     '#!/bin/bash' \
     '' \
@@ -179,6 +179,14 @@ RUN mkdir -p /host-claude && \
     '    sudo rm -f /home/yolo/.claude.json' \
     '    sudo cp -a /host-claude/.claude.json /home/yolo/.claude.json' \
     '    sudo chown yolo:yolo /home/yolo/.claude.json' \
+    'fi' \
+    '' \
+    '# Copy git config from host staging area if present' \
+    'if [ -f /host-git/.gitconfig ]; then' \
+    '    echo -e "\033[33m→ Copying host git config to container\033[0m" >&2' \
+    '    sudo rm -f /home/yolo/.gitconfig' \
+    '    sudo cp -a /host-git/.gitconfig /home/yolo/.gitconfig' \
+    '    sudo chown yolo:yolo /home/yolo/.gitconfig' \
     'fi' \
     '' \
     '# Auto-trust /workspace for Claude Code (this is yolobox after all)' \

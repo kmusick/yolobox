@@ -80,6 +80,9 @@ ANTHROPIC_API_KEY=test ./yolobox run printenv ANTHROPIC_API_KEY  # Should output
 
 # 9. Claude config sharing (opt-in with --claude-config)
 ./yolobox run --claude-config ls /home/yolo/.claude   # Should show copied host claude config
+
+# 10. Git config sharing (opt-in with --git-config)
+./yolobox run --git-config cat /home/yolo/.gitconfig  # Should show copied host git config
 ```
 
 ## Architecture

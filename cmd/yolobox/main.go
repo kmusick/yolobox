@@ -65,6 +65,7 @@ type Config struct {
 	NoNetwork       bool     `toml:"no_network"`
 	NoYolo          bool     `toml:"no_yolo"`
 	ClaudeConfig    bool     `toml:"claude_config"`
+	GitConfig       bool     `toml:"git_config"`
 }
 
 type stringSliceFlag []string
@@ -270,6 +271,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  --no-yolo             Disable AI CLIs YOLO mode")
 	fmt.Fprintln(os.Stderr, "  --readonly-project    Mount project directory read-only")
 	fmt.Fprintln(os.Stderr, "  --claude-config       Copy host Claude config to container")
+	fmt.Fprintln(os.Stderr, "  --git-config          Copy host git config to container")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintf(os.Stderr, "%sCONFIG:%s\n", colorBold, colorReset)
 	fmt.Fprintln(os.Stderr, "  Global:  ~/.config/yolobox/config.toml")
@@ -310,6 +312,7 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 		noNetwork       bool
 		noYolo          bool
 		claudeConfig    bool
+		gitConfig       bool
 		mounts          stringSliceFlag
 		envVars         stringSliceFlag
 	)
@@ -321,6 +324,7 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 	fs.BoolVar(&noNetwork, "no-network", false, "disable network")
 	fs.BoolVar(&noYolo, "no-yolo", false, "disable AI CLIs YOLO mode")
 	fs.BoolVar(&claudeConfig, "claude-config", false, "copy host Claude config to container")
+	fs.BoolVar(&gitConfig, "git-config", false, "copy host git config to container")
 	fs.Var(&mounts, "mount", "extra mount src:dst")
 	fs.Var(&envVars, "env", "environment variable KEY=value")
 
@@ -352,6 +356,9 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 	}
 	if claudeConfig {
 		cfg.ClaudeConfig = true
+	}
+	if gitConfig {
+		cfg.GitConfig = true
 	}
 	if len(mounts) > 0 {
 		cfg.Mounts = append(cfg.Mounts, mounts...)
@@ -506,6 +513,10 @@ func mergeConfigFile(path string, cfg *Config, restricted bool) error {
 			warn("Ignoring restricted field in project config: claude_config=true (use global config or CLI flags)")
 			fileCfg.ClaudeConfig = false
 		}
+		if fileCfg.GitConfig {
+			warn("Ignoring restricted field in project config: git_config=true (use global config or CLI flags)")
+			fileCfg.GitConfig = false
+		}
 	}
 
 	mergeConfig(cfg, fileCfg)
@@ -540,6 +551,9 @@ func mergeConfig(dst *Config, src Config) {
 	if src.ClaudeConfig {
 		dst.ClaudeConfig = true
 	}
+	if src.GitConfig {
+		dst.GitConfig = true
+	}
 }
 
 func runShell(cfg Config) error {
@@ -566,6 +580,9 @@ func printActiveConfig(cfg Config) {
 	}
 	if cfg.ClaudeConfig {
 		active = append(active, "claude-config")
+	}
+	if cfg.GitConfig {
+		active = append(active, "git-config")
 	}
 	if len(cfg.Mounts) > 0 {
 		active = append(active, fmt.Sprintf("%d extra mount(s)", len(cfg.Mounts)))
@@ -608,6 +625,7 @@ func printConfig(cfg Config) error {
 	fmt.Printf("%sno_network:%s %t\n", colorBold, colorReset, cfg.NoNetwork)
 	fmt.Printf("%sno_yolo:%s %t\n", colorBold, colorReset, cfg.NoYolo)
 	fmt.Printf("%sclaude_config:%s %t\n", colorBold, colorReset, cfg.ClaudeConfig)
+	fmt.Printf("%sgit_config:%s %t\n", colorBold, colorReset, cfg.GitConfig)
 	if len(cfg.Mounts) > 0 {
 		fmt.Printf("%smounts:%s\n", colorBold, colorReset)
 		for _, m := range cfg.Mounts {
@@ -796,6 +814,18 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 		claudeConfigFile := filepath.Join(home, ".claude.json")
 		if _, err := os.Stat(claudeConfigFile); err == nil {
 			args = append(args, "-v", claudeConfigFile+":/host-claude/.claude.json:ro")
+		}
+	}
+
+	// Mount git config from host to staging area (copied to /home/yolo by entrypoint)
+	if cfg.GitConfig {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		gitConfigFile := filepath.Join(home, ".gitconfig")
+		if _, err := os.Stat(gitConfigFile); err == nil {
+			args = append(args, "-v", gitConfigFile+":/host-git/.gitconfig:ro")
 		}
 	}
 
