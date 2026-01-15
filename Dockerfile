@@ -96,8 +96,10 @@ COPY --from=claude-installer /root/.local/bin/claude /usr/local/bin/claude
 USER yolo
 
 # Create symlink for Claude at ~/.local/bin (host config expects it there)
+# Then run `claude install` to register installation metadata so `claude update` works
 RUN mkdir -p /home/yolo/.local/bin && \
-    ln -s /usr/local/bin/claude /home/yolo/.local/bin/claude
+    ln -s /usr/local/bin/claude /home/yolo/.local/bin/claude && \
+    claude install || true
 WORKDIR /home/yolo
 
 # Set up a fun prompt and aliases
